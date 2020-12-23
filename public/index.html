@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Search for song lyrics to generate Genius quote cards">
+  <title>Genius Quote Finder</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css">
+  <style>
+    a {
+      text-decoration: underline;
+    }
+
+    a,
+    a:hover,
+    .btn-link,
+    .btn-link:hover {
+      color: #85d9de;
+    }
+
+    body {
+      align-items: center;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    body.light {
+      background: #e8828e;
+    }
+
+    form {
+      max-width: calc(100% - 20px);
+      width: 500px;
+    }
+
+    h1 {
+      color: #85d9de;
+      text-align: center;
+    }
+
+    img,
+    #message {
+      height: 300px;
+      max-width: calc(100% - 140px);
+      object-fit: contain;
+      width: 500px;
+    }
+
+    @media only screen and (min-width: 660px) {
+      img,
+      #message {
+        height: 500px;
+      }
+    }
+
+    .btn-link {
+      font-size: 25px;
+      font-weight: bold;
+    }
+
+    #image-wrapper {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      max-width: calc(100% - 20px);
+      width: 640px;
+    }
+
+    #links {
+      margin-top: 10px;
+    }
+
+    #links a {
+      padding: 0 5px;
+    }
+
+    #made-in,
+    #made-in a {
+      color: darkgrey;
+    }
+
+    #message {
+      align-items: center;
+      color: #85d9de;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+    }
+
+    #message > div {
+      margin-top: 15px;
+    }
+
+    #submit {
+      background: #85d9de;
+      border-color: #85d9de;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="display-4">&lt; Genius Quote Finder &gt;</h1>
+  <form class="form" id="form">
+    <div class="form-group">
+      <input class="form-control" placeholder="Search here..." type="text">
+    </div>
+    <button class="btn btn-block" id="submit" type="submit">Search</button>
+  </form>
+  <div id="image-wrapper">
+    <button class="btn btn-link" disabled id="previous">&lt;</button>
+    <img style="display: none;">
+    <div id="message">
+      Search for song quotes :)
+      <div>Keep in mind that the matching is far from perfect and may produce very odd results for certain queries</div>
+    </div>
+    <button class="btn btn-link" disabled id="next">&gt;</button>
+  </div>
+  <div id="links">
+    <a href="https://github.com/deanylev/genius-quote-finder" target="_blank">Source</a>
+    <a href="#!" id="theme">Light Mode</a>
+  </div>
+  <div id="made-in">Made by <a href="https://deanlevinson.com.au" target="_blank">Dean Levinson</a></div>
+  <script>
+    /**
+     * muh render pipeline™
+     */
+
+    // constants
+    const themeMessages = ['lol jk', 'why tho', 'stop it', 'i am warning you', 'fine'];
+
+    // vars
+    let page = 0;
+    let query = '';
+    let themeClicked = false;
+
+    // elements
+    const body = document.querySelector('body');
+    const image = document.querySelector('img');
+    const input = document.querySelector('input');
+    const message = document.getElementById('message');
+    const next = document.getElementById('next');
+    const previous = document.getElementById('previous');
+    const submit = document.getElementById('submit');
+    const theme = document.getElementById('theme');
+
+    // util
+    const search = async () => {
+      setInFlight(true);
+      message.style.display = 'none';
+      image.style.display = null;
+      image.src = '/loading.gif';
+      try {
+        const response = await fetch(`/search?q=${query}&p=${page}`);
+        if (response.ok) {
+          const { data, hasMore } = await response.json();
+          image.src = data;
+          next.disabled = !hasMore;
+          previous.disabled = page === 0;
+        } else {
+          setMessage('No results :(');
+        }
+      } catch {
+        setMessage('Something went wrong :(');
+      } finally {
+        setInFlight(false);
+      }
+    };
+    const setInFlight = (inFlight) => {
+      submit.disabled = inFlight || !input.value;
+      input.disabled = inFlight;
+      submit.textContent = inFlight ? 'Searching...' : 'Search';
+
+      if (inFlight) {
+        previous.disabled = true;
+        next.disabled = true;
+      }
+    };
+    const setMessage = (text) => {
+      image.style.display = 'none';
+      message.textContent = text;
+      message.style.display = null;
+    };
+
+    // event listeners
+    setInFlight(false);
+    theme.addEventListener('click', (event) => {
+      event.preventDefault();
+
+      if (!themeClicked) {
+        themeClicked = true;
+        theme.textContent = themeMessages[0];
+        return;
+      }
+
+      const themeMessage = themeMessages[themeMessages.indexOf(theme.textContent) + 1];
+      if (!themeMessage) {
+        body.className = 'light';
+        theme.style.display = 'none';
+        return;
+      }
+      theme.textContent = themeMessage;
+    });
+    input.addEventListener('input', () => {
+      submit.disabled = !input.value;
+    });
+    previous.addEventListener('click', (event) => {
+      event.preventDefault();
+
+      page--;
+      search();
+    });
+    next.addEventListener('click', (event) => {
+      event.preventDefault();
+
+      page++;
+      search();
+    });
+    document.getElementById('form').addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      page = 0;
+      query = input.value;
+      search();
+    });
+  </script>
+</body>
+</html>
