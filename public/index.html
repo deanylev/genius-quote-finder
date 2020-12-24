@@ -169,7 +169,7 @@
       }
     };
     const setInFlight = (inFlight) => {
-      submit.disabled = inFlight || !input.value;
+      submit.disabled = inFlight || !input.value.trim();
       input.disabled = inFlight;
       submit.textContent = inFlight ? 'Searching...' : 'Search';
 
@@ -204,7 +204,7 @@
       theme.textContent = themeMessage;
     });
     input.addEventListener('input', () => {
-      submit.disabled = !input.value;
+      submit.disabled = !input.value.trim();
     });
     previous.addEventListener('click', (event) => {
       event.preventDefault();
@@ -222,7 +222,7 @@
       event.preventDefault();
 
       page = 0;
-      query = input.value;
+      query = input.value.trim();
       search();
     });
   </script>

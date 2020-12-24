@@ -74,7 +74,7 @@ const app = express();
 
   app.get('/search', async (req, res) => {
     try {
-      const query = req.query.q;
+      const query = req.query.q?.trim();
       if (!query) {
         res.sendStatus(400);
         return;
