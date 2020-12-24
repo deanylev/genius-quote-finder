@@ -8,7 +8,7 @@ const express = require('express');
 const IMAGE_SIZE = 500;
 const RES_DIR = `${__dirname}/res`;
 const TEXT_GAP = 50;
-const TEXT_PADDING = 30;
+const TEXT_PADDING = 20;
 
 const app = express();
 
@@ -17,22 +17,26 @@ const app = express();
   const fontWhite = await Jimp.loadFont(`${RES_DIR}/Programme-Regular-White.fnt`);
   const quotesImage = await Jimp.read(`${RES_DIR}/quotes.png`);
 
-  const getLyricsFromUrl = async (url) => {
+  const scapeDataFromUrl = async (url) => {
     for (let i = 0; i < 10; i++) {
       const { data } = await axios.get(url, {
         responseType: 'text'
       });
       const $ = cheerio.load(data);
       const lyrics = $('.lyrics').text().trim();
+      const videoLink = JSON.parse($('meta[itemprop="page_data"]').attr('content') || '{}').song?.youtube_url;
       if (lyrics) {
-        return lyrics.split('\n');
+        return {
+          lyrics: lyrics.split('\n'),
+          videoLink
+        }
       }
     }
 
     throw 'gave up';
   };
 
-  const cleanString = (string) => string.replace(/[^0-9A-Za-z-_{}\$\[\]@()\|&\?!;\/\\%#:<>\+\*\^='"`\~\s]/g, '');
+  const cleanString = (string) => string.replace(/’/g, '\'').replace(/[^0-9A-Za-z-_,\.{}\$\[\]@()\|&\?!;\/\\%#:<>\+\*\^='"`\~\s]/g, '');
   const normaliseString = (string) => string.toLowerCase().replace(/[^0-9a-z-\s]/g, '');
 
   const splitString = (string, font, width, lengthLimit) => {
@@ -42,7 +46,7 @@ const app = express();
     while (stringWords.length > 0) {
       const chunk = [];
 
-      while (Jimp.measureText(font, [...chunk, stringWords[stringWords.length - 1]].join(' ')) < (width - 50) && stringWords.length > 0) {
+      while (Jimp.measureText(font, [...chunk, stringWords[0]].join(' ')) < width && stringWords.length > 0) {
         chunk.push(stringWords.shift());
       }
 
@@ -101,7 +105,8 @@ const app = express();
       const { result: { primary_artist, title, url } } = match;
       const normalisedQuery = normaliseString(query);
       const splitNormalisedQuery = normalisedQuery.split(' ');
-      const lyrics = (await getLyricsFromUrl(url)).map((lyric) => cleanString(lyric));
+      const scrapedData = await scapeDataFromUrl(url);
+      const lyrics = scrapedData.lyrics.map((lyric) => cleanString(lyric));
       const normalisedLyrics = lyrics.map((lyric) => normaliseString(lyric));
       const matchingNormalisedLyric =
         normalisedLyrics.find((lyric) => lyric.match(new RegExp(`\\b${normalisedQuery}\\b`)))
@@ -128,8 +133,9 @@ const app = express();
 
       const buffer = await printedImage.blit(quotesImage, 15, 20).getBufferAsync(Jimp.AUTO);
       res.json({
-        data: `data:${image.getMIME()};base64,${buffer.toString('base64')}`,
-        hasMore: !!hits[index + 1]
+        hasMore: !!hits[index + 1],
+        imageData: `data:${image.getMIME()};base64,${buffer.toString('base64')}`,
+        videoLink: scrapedData.videoLink
       });
       console.log('generated result', {
         index,

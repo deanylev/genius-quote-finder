@@ -134,6 +134,7 @@
     // vars
     let page = 0;
     let query = '';
+    let activeVideoLink = null;
     let themeClicked = false;
 
     // elements
@@ -149,18 +150,22 @@
     // util
     const search = async () => {
       setInFlight(true);
+      activeVideoLink = null;
       message.style.display = 'none';
       image.style.display = null;
       image.src = '/loading.gif';
       try {
         const response = await fetch(`/search?q=${query}&p=${page}`);
         if (response.ok) {
-          const { data, hasMore } = await response.json();
-          image.src = data;
+          const { hasMore, imageData, videoLink } = await response.json();
+          image.src = imageData;
+          activeVideoLink = videoLink;
           next.disabled = !hasMore;
           previous.disabled = page === 0;
-        } else {
+        } else if (response.status === 404) {
           setMessage('No results :(');
+        } else {
+          throw 'bad response';
         }
       } catch {
         setMessage('Something went wrong :(');
@@ -224,6 +229,12 @@
       page = 0;
       query = input.value.trim();
       search();
+    });
+    image.addEventListener('dblclick', () => {
+      if (!activeVideoLink) {
+        return;
+      }
+      window.open(activeVideoLink, '_blank');
     });
   </script>
 </body>
