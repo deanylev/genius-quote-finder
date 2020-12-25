@@ -1,8 +1,23 @@
 {
+  "name": "genius-quote-finder",
+  "version": "1.0.0",
+  "description": "Portal for Desi's Daycare",
+  "scripts": {
+    "lint": "npx eslint start.js public/index.html",
+    "start": "node start.js"
+  },
   "dependencies": {
     "axios": "^0.21.0",
     "cheerio": "^1.0.0-rc.5",
     "express": "^4.17.1",
     "jimp": "^0.16.1"
+  },
+  "devDependencies": {
+    "babel-eslint": "^10.1.0",
+    "eslint": "^7.16.0",
+    "eslint-plugin-html": "^6.1.1"
+  },
+  "engines": {
+    "node": "14.x.x"
   }
 }

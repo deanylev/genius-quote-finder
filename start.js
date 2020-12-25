@@ -29,14 +29,14 @@ const app = express();
         return {
           lyrics: lyrics.split('\n'),
           videoLink
-        }
+        };
       }
     }
 
     throw 'gave up';
   };
 
-  const cleanString = (string) => string.replace(/’/g, '\'').replace(/[^0-9A-Za-z-_,\.{}\$\[\]@()\|&\?!;\/\\%#:<>\+\*\^='"`\~\s]/g, '');
+  const cleanString = (string) => string.replace(/’/g, '\'').replace(/[^0-9A-Za-z-_,.{}$[\]@()|&?!;/\\%#:<>+*^='"`~\s]/g, '');
   const normaliseString = (string) => string.toLowerCase().replace(/[^0-9a-z-\s]/g, '');
 
   const splitString = (string, font, width, lengthLimit) => {
@@ -67,12 +67,17 @@ const app = express();
     const textWidth = Jimp.measureText(fontBlack, lyric);
     const textHeight = Jimp.measureTextHeight(fontBlack, lyric);
     return new Promise((resolve, reject) => {
-      new Jimp(textWidth + TEXT_PADDING, textHeight, '#fff', (err, image) => {
+      new Jimp(textWidth + TEXT_PADDING, textHeight, '#fff', (error, image) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
         image.print(fontBlack, TEXT_PADDING / 2, 0, lyric);
         resolve(image);
       });
     });
-  }
+  };
 
   app.use(express.static('public'));
 
