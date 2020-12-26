@@ -40,6 +40,12 @@
       text-align: center;
     }
 
+    @media only screen and (max-width: 660px) {
+      h1.display-4 {
+        font-size: 2.5rem;
+      }
+    }
+
     img,
     #message {
       height: 300px;
@@ -60,6 +66,24 @@
       font-weight: bold;
     }
 
+    .btn-link:hover {
+      text-decoration: none;
+    }
+
+    .offset {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .offset > button {
+      height: 25px;
+      padding: 0;
+    }
+
+    .offset > button > div {
+      transform: rotate(90deg);
+    }
+
     #image-wrapper {
       align-items: center;
       display: flex;
@@ -70,7 +94,7 @@
     }
 
     #links {
-      margin-top: 10px;
+      margin-top: 25px;
     }
 
     #links a {
@@ -86,9 +110,22 @@
       align-items: center;
       color: #85d9de;
       display: flex;
+      font-size: 16px;
       flex-direction: column;
       justify-content: center;
       text-align: center;
+    }
+
+    @media only screen and (max-width: 410px) {
+      #message {
+        font-size: 14px;
+      }
+    }
+
+    @media only screen and (max-width: 360px) {
+      #message {
+        font-size: 12px;
+      }
     }
 
     #message > div {
@@ -109,14 +146,31 @@
     </div>
     <button class="btn btn-block" id="submit" type="submit">Search</button>
   </form>
+  <div class="offset" id="start-offset">
+    <button class="btn btn-link" disabled id="start-offset-up">
+      <div>&lt;</div>
+    </button>
+    <button class="btn btn-link" disabled id="start-offset-down">
+      <div>&gt;</div>
+    </button>
+  </div>
   <div id="image-wrapper">
     <button class="btn btn-link" disabled id="previous">&lt;</button>
     <img style="display: none;">
     <div id="message">
       Search for song quotes :)
       <div>Keep in mind that the matching is far from perfect and may produce very odd results for certain queries</div>
+      <div>The horizontal arrows change the page of results, the vertical ones add/remove lyrics at the start/end of your queried quote</div>
     </div>
     <button class="btn btn-link" disabled id="next">&gt;</button>
+  </div>
+  <div class="offset" id="end-offset">
+    <button class="btn btn-link" disabled id="end-offset-down">
+      <div>&lt;</div>
+    </button>
+    <button class="btn btn-link" disabled id="end-offset-up">
+      <div>&gt;</div>
+    </button>
   </div>
   <div id="links">
     <a href="https://github.com/deanylev/genius-quote-finder" target="_blank">Source</a>
@@ -129,39 +183,64 @@
      */
 
     // constants
+    const clickDelay = 500;
+    const offsetInFlightText = 'Regenerating...';
     const themeMessages = ['lol jk', 'why tho', 'stop it', 'i am warning you', 'fine'];
 
     // vars
+    let activeLyricsLink = null;
+    let activeVideoLink = null;
+    let clickTimeout = null;
+    let endOffset = 0;
     let page = 0;
     let query = '';
-    let activeVideoLink = null;
+    let startOffset = 0;
     let themeClicked = false;
 
     // elements
     const body = document.querySelector('body');
+    const endOffsetDown = document.getElementById('end-offset-down');
+    const endOffsetUp = document.getElementById('end-offset-up');
     const image = document.querySelector('img');
     const input = document.querySelector('input');
     const message = document.getElementById('message');
     const next = document.getElementById('next');
     const previous = document.getElementById('previous');
+    const startOffsetDown = document.getElementById('start-offset-down');
+    const startOffsetUp = document.getElementById('start-offset-up');
     const submit = document.getElementById('submit');
     const theme = document.getElementById('theme');
 
     // util
-    const search = async () => {
-      setInFlight(true);
+    const clearClickTimeout = () => {
+      if (clickTimeout === null) {
+        return;
+      }
+
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+    };
+    const openLyricsLink = () => window.open(activeLyricsLink, '_blank');
+    const search = async (text) => {
+      setInFlight(true, text);
+      activeLyricsLink = null;
       activeVideoLink = null;
       message.style.display = 'none';
       image.style.display = null;
-      image.src = '/loading.gif';
+      setImageSrc('/loading.gif');
       try {
-        const response = await fetch(`/search?q=${query}&p=${page}`);
+        const response = await fetch(`/search?q=${query}&p=${page}&eo=${endOffset}&so=${startOffset}`);
         if (response.ok) {
-          const { hasMore, imageData, videoLink } = await response.json();
-          image.src = imageData;
+          const { hasMoreEndOffset, hasMorePages, hasMoreStartOffset, imageData, lyricsLink, videoLink } = await response.json();
+          setImageSrc(imageData);
+          activeLyricsLink = lyricsLink;
           activeVideoLink = videoLink;
-          next.disabled = !hasMore;
+          next.disabled = !hasMorePages;
           previous.disabled = page === 0;
+          endOffsetUp.disabled = !hasMoreEndOffset;
+          startOffsetUp.disabled = !hasMoreStartOffset;
+          endOffsetDown.disabled = endOffset === 0;
+          startOffsetDown.disabled = startOffset === 0;
         } else if (response.status === 404) {
           setMessage('No results :(');
         } else {
@@ -173,15 +252,23 @@
         setInFlight(false);
       }
     };
-    const setInFlight = (inFlight) => {
+    const setInFlight = (inFlight, textIfTrue = 'Searching...') => {
       submit.disabled = inFlight || !input.value.trim();
       input.disabled = inFlight;
-      submit.textContent = inFlight ? 'Searching...' : 'Search';
+      submit.textContent = inFlight ? textIfTrue : 'Search';
 
       if (inFlight) {
+        endOffsetDown.disabled = true;
+        endOffsetUp.disabled = true;
+        startOffsetDown.disabled = true;
+        startOffsetUp.disabled = true;
         previous.disabled = true;
         next.disabled = true;
       }
+    };
+    const setImageSrc = (src) => {
+      image.src = src;
+      image.style.cursor = src === '/loading.gif' ? null : 'pointer';
     };
     const setMessage = (text) => {
       image.style.display = 'none';
@@ -212,29 +299,60 @@
       submit.disabled = !input.value.trim();
     });
     previous.addEventListener('click', (event) => {
-      event.preventDefault();
-
+      endOffset = 0;
+      startOffset = 0;
       page--;
       search();
     });
     next.addEventListener('click', (event) => {
-      event.preventDefault();
-
+      endOffset = 0;
+      startOffset = 0;
       page++;
       search();
+    });
+    endOffsetDown.addEventListener('click', (event) => {
+      endOffset--;
+      search(offsetInFlightText);
+    });
+    endOffsetUp.addEventListener('click', (event) => {
+      endOffset++;
+      search(offsetInFlightText);
+    });
+    startOffsetDown.addEventListener('click', (event) => {
+      startOffset--;
+      search(offsetInFlightText);
+    });
+    startOffsetUp.addEventListener('click', (event) => {
+      startOffset++;
+      search(offsetInFlightText);
     });
     document.getElementById('form').addEventListener('submit', (event) => {
       event.preventDefault();
 
+      endOffset = 0;
+      startOffset = 0;
       page = 0;
       query = input.value.trim();
       search();
     });
-    image.addEventListener('dblclick', () => {
-      if (!activeVideoLink) {
+    image.addEventListener('click', () => {
+      if (!activeLyricsLink) {
         return;
       }
-      window.open(activeVideoLink, '_blank');
+      if (!activeVideoLink) {
+        openLyricsLink();
+        return;
+      }
+
+      if (clickTimeout === null) {
+        clickTimeout = setTimeout(() => {
+          clearClickTimeout();
+          window.open(activeLyricsLink, '_blank');
+        }, clickDelay);
+      } else {
+        clearClickTimeout();
+        window.open(activeVideoLink, '_blank');
+      }
     });
   </script>
 </body>

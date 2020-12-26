@@ -42,26 +42,36 @@ const app = express();
   const splitString = (string, font, width, lengthLimit) => {
     const stringWords = string.split(' ');
     const chunks = [];
+    let hasMoreSpace = true;
 
     while (stringWords.length > 0) {
       const chunk = [];
 
       while (Jimp.measureText(font, [...chunk, stringWords[0]].join(' ')) < width && stringWords.length > 0) {
-        chunk.push(stringWords.shift());
+        const word = stringWords.shift();
+        chunk.push(word);
+
+        if (word.endsWith('\n')) {
+          break;
+        }
       }
 
       chunks.push(chunk.join(' '));
 
       if (chunks.length === lengthLimit) {
+        hasMoreSpace = false;
         chunks.push('...');
         break;
       }
     }
 
-    return chunks;
+    return {
+      chunks,
+      hasMoreSpace
+    };
   };
   const splitLyric = (lyric) => splitString(lyric, fontBlack, IMAGE_SIZE - TEXT_GAP - TEXT_PADDING, 5);
-  const splitTitle = (title) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).reverse();
+  const splitTitle = (title) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).chunks.reverse();
 
   const renderLyric = (lyric) => {
     const textWidth = Jimp.measureText(fontBlack, lyric);
@@ -90,6 +100,8 @@ const app = express();
       }
 
       const index = parseInt(req.query.p, 10) || 0;
+      const startOffset = parseInt(req.query.so, 10) || 0;
+      const endOffset = parseInt(req.query.eo, 10) || 0;
       console.log('search', {
         index,
         query
@@ -111,18 +123,21 @@ const app = express();
       const normalisedQuery = normaliseString(query);
       const splitNormalisedQuery = normalisedQuery.split(' ');
       const scrapedData = await scapeDataFromUrl(url);
-      const lyrics = scrapedData.lyrics.map((lyric) => cleanString(lyric));
+      const lyrics = scrapedData.lyrics.map((lyric) => cleanString(lyric)).filter((lyric) => lyric);
       const normalisedLyrics = lyrics.map((lyric) => normaliseString(lyric));
       const matchingNormalisedLyric =
         normalisedLyrics.find((lyric) => lyric.match(new RegExp(`\\b${normalisedQuery}\\b`)))
           || normalisedLyrics.find((lyric) => lyric.includes(normalisedQuery))
           || normalisedLyrics.find((lyric) => splitNormalisedQuery.some((word) => lyric.match(new RegExp(`\\b${word}\\b`))))
           || normalisedLyrics.find((lyric) => splitNormalisedQuery.some((word) => lyric.includes(word)));
-      const matchingLyric = lyrics[normalisedLyrics.indexOf(matchingNormalisedLyric)] || query;
+      const matchingIndex = normalisedLyrics.indexOf(matchingNormalisedLyric);
+      const startIndex = matchingIndex - startOffset;
+      const endIndex = matchingIndex + 1 + endOffset;
+      const matchingLyric = matchingIndex === -1 ? query : lyrics.slice(startIndex, endIndex).join('\n ');
       const { data: imageData } = await axios.get(primary_artist.image_url, {
         responseType: 'arraybuffer'
       });
-      const lyricArray = splitLyric(matchingLyric);
+      const { chunks: lyricArray, hasMoreSpace } = splitLyric(matchingLyric);
       const image = (await Jimp.read(imageData)).resize(IMAGE_SIZE, IMAGE_SIZE);
       let blatImage = image.brightness(-0.3);
       for (let i = 0; i < lyricArray.length; i++) {
@@ -137,11 +152,20 @@ const app = express();
       }
 
       const buffer = await printedImage.blit(quotesImage, 15, 20).getBufferAsync(Jimp.AUTO);
-      res.json({
-        hasMore: !!hits[index + 1],
-        imageData: `data:${image.getMIME()};base64,${buffer.toString('base64')}`,
-        videoLink: scrapedData.videoLink
-      });
+      if (req.query.d === 'true') {
+        // debug, just send image
+        res.setHeader('Content-Type', image.getMIME());
+        res.send(buffer);
+      } else {
+        res.json({
+          hasMoreEndOffset: matchingIndex !== -1 && hasMoreSpace && endIndex < lyrics.length,
+          hasMorePages: !!hits[index + 1],
+          hasMoreStartOffset: matchingIndex !== -1 && hasMoreSpace && startIndex > 0,
+          imageData: `data:${image.getMIME()};base64,${buffer.toString('base64')}`,
+          lyricsLink: url,
+          videoLink: scrapedData.videoLink
+        });
+      }
       console.log('generated result', {
         index,
         query
