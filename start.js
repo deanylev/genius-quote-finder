@@ -4,6 +4,7 @@ const NodeCache = require('node-cache');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
+const removeAccents = require('remove-accents');
 
 // constants
 const CACHE_EXPIRY = 60 * 10; // 10 minutes
@@ -49,7 +50,10 @@ let requestIdGenerator = 0;
   };
 
   // only allow characters our fnt file supports
-  const cleanString = (string) => string.replace(/’/g, '\'').replace(/[^0-9A-Za-z-_,.{}$[\]@()|&?!;/\\%#:<>+*^='"`~\s]/g, '');
+  const cleanString = (string) => removeAccents(string)
+    .replace(/’/g, '\'')
+    .replace(/—/g, '-')
+    .replace(/[^0-9A-Za-z-_,.{}$[\]@()|&?!;/\\%#:<>+*^='"`~\s]/g, '');
   // strip out non-alphanumeric characters
   const normaliseString = (string) => string.toLowerCase().replace(/[^0-9a-z-\s]/g, '');
 
