@@ -180,8 +180,8 @@ let requestIdGenerator = 0;
         scrapedData = await scapeDataFromUrl(url);
         cache.set(cachedScrapedDataKey, scrapedData, CACHE_EXPIRY);
       }
-      // filter out characters that we can't print using our fnt file
-      const lyrics = scrapedData.lyrics.map((lyric) => cleanString(lyric)).filter((lyric) => lyric);
+      // filter out characters that we can't print using our fnt file and also lyrical meta like "[Outro: x]"
+      const lyrics = scrapedData.lyrics.map((lyric) => cleanString(lyric)).filter((lyric) => lyric && !/^\[.+]$/.test(lyric));
       // again strip out non-alphanumeric characters to match our query
       const normalisedLyrics = lyrics.map((lyric) => normaliseString(lyric));
       // try find the closest match
@@ -200,7 +200,7 @@ let requestIdGenerator = 0;
       const endIndex = matchingIndex + 1 + endOffset;
       const matchingLyric = matchingIndex === -1 ? query : lyrics.slice(startIndex, endIndex).join('\n ');
       // fetch artist image
-      const cachedImageDataKey = `${CACHE_NAMESPACE_ARTIST_IMAGE}${primary_artist.image_url}`
+      const cachedImageDataKey = `${CACHE_NAMESPACE_ARTIST_IMAGE}${primary_artist.image_url}`;
       let imageData = cache.get(cachedImageDataKey);
       if (imageData) {
         console.log('using cached image data', {
