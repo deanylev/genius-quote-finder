@@ -11,6 +11,8 @@ const CACHE_EXPIRY = 60 * 10; // 10 minutes
 const CACHE_NAMESPACE_API = 'API_';
 const CACHE_NAMESPACE_ARTIST_IMAGE = 'ARTISTIMAGE_';
 const CACHE_NAMESPACE_SCRAPED = 'SCRAPED_';
+const HEIGHT_LIMIT_INFO = 3;
+const HEIGHT_LIMIT_LYRICS = 5;
 const IMAGE_SIZE = 500;
 const LYRIC_PADDING = 20;
 const RES_DIR = `${__dirname}/res`;
@@ -79,7 +81,10 @@ let requestIdGenerator = 0;
 
       if (chunks.length === lengthLimit) {
         hasMoreSpace = false;
-        chunks.push('...');
+
+        if (stringWords.length > 0) {
+          chunks.push('...');
+        }
         break;
       }
     }
@@ -89,7 +94,7 @@ let requestIdGenerator = 0;
       hasMoreSpace
     };
   };
-  const splitLyric = (lyric) => splitString(lyric, fontBlack, IMAGE_SIZE - TEXT_GAP - LYRIC_PADDING, 5);
+  const splitLyric = (lyric, lengthLimit) => splitString(lyric, fontBlack, IMAGE_SIZE - TEXT_GAP - LYRIC_PADDING, lengthLimit);
   // reverse so we can render from the bottom up, discard hasMoreSpace property as it's not used
   const splitTitle = (title) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).chunks.reverse();
 
@@ -211,7 +216,8 @@ let requestIdGenerator = 0;
         cache.set(cachedImageDataKey, imageData, CACHE_EXPIRY);
       }
       // apply splitting algorithm to fit the text over our image
-      const { chunks: lyricArray, hasMoreSpace } = splitLyric(matchingLyric);
+      const titleArray = splitTitle(cleanString(`${primary_artist.name} "${title}"`));
+      const { chunks: lyricArray, hasMoreSpace } = splitLyric(matchingLyric, HEIGHT_LIMIT_LYRICS + HEIGHT_LIMIT_INFO - titleArray.length);
       // resize/darken image, then render lyric chunks one by one
       const image = (await Jimp.read(imageData)).resize(IMAGE_SIZE, IMAGE_SIZE);
       let blatImage = image.brightness(-0.3);
@@ -222,7 +228,6 @@ let requestIdGenerator = 0;
 
       // render song info
       // this could pretty easily be a reduce loop but seems nicer to match blocking loop above
-      const titleArray = splitTitle(cleanString(`${primary_artist.name} "${title}"`));
       let printedImage = blatImage;
       for (let i = 0; i < titleArray.length; i++) {
         printedImage = printedImage.print(fontWhite, TEXT_GAP, IMAGE_SIZE - SONG_INFO_OFFSET - i * 30, titleArray[i]);
