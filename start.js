@@ -61,7 +61,7 @@ let requestIdGenerator = 0;
 
   // split string into chunks we can render onto the image
   const splitString = (string, font, width, lengthLimit) => {
-    const stringWords = string.split(' ');
+    const stringWords = string.trim().split(' ');
     const chunks = [];
     let hasMoreSpace = true;
 
