@@ -220,7 +220,7 @@
       clearTimeout(clickTimeout);
       clickTimeout = null;
     };
-    const openLyricsLink = () => window.open(activeLyricsLink, '_blank');
+    const openLink = (url) => window.open(url, '_blank');
     const search = async (text) => {
       setInFlight(true, text);
       activeLyricsLink = null;
@@ -340,18 +340,18 @@
         return;
       }
       if (!activeVideoLink) {
-        openLyricsLink();
+        openLink(activeLyricsLink);
         return;
       }
 
       if (clickTimeout === null) {
         clickTimeout = setTimeout(() => {
           clearClickTimeout();
-          window.open(activeLyricsLink, '_blank');
+          openLink(activeLyricsLink);
         }, clickDelay);
       } else {
         clearClickTimeout();
-        window.open(activeVideoLink, '_blank');
+        openLink(activeVideoLink);
       }
     });
   </script>
