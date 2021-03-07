@@ -46,6 +46,10 @@
       }
     }
 
+    img {
+      transition: filter 0.2s ease-in-out;
+    }
+
     img,
     #message {
       height: 300px;
@@ -59,6 +63,14 @@
       #message {
         height: 500px;
       }
+    }
+
+    img.loaded:hover {
+      filter: brightness(0.4);
+    }
+
+    img.loaded:hover + #instructions {
+      opacity: 1;
     }
 
     .btn-link {
@@ -90,7 +102,26 @@
       justify-content: center;
       margin-top: 20px;
       max-width: calc(100% - 20px);
+      position: relative;
       width: 640px;
+    }
+
+    #instructions {
+      align-items: center;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      font-size: 22px;
+      opacity: 0;
+      position: absolute;
+      pointer-events: none;
+      text-align: center;
+      transition: opacity 0.2s ease-in-out;
+      width: 50%;
+    }
+
+    #instructions div {
+      margin: 10px 0;
     }
 
     #links {
@@ -117,12 +148,20 @@
     }
 
     @media only screen and (max-width: 410px) {
+      #instructions {
+        font-size: 16px;
+      }
+
       #message {
         font-size: 14px;
       }
     }
 
     @media only screen and (max-width: 360px) {
+      #instructions {
+        font-size: 14px;
+      }
+
       #message {
         font-size: 12px;
       }
@@ -144,7 +183,7 @@
     <div class="form-group">
       <input class="form-control" placeholder="Search here..." type="text">
     </div>
-    <button class="btn btn-block" id="submit" type="submit">Search</button>
+    <button class="btn btn-block" disabled id="submit" type="submit">Search</button>
   </form>
   <div class="offset" id="start-offset">
     <button class="btn btn-link" disabled id="start-offset-up">
@@ -157,6 +196,10 @@
   <div id="image-wrapper">
     <button class="btn btn-link" disabled id="previous">&lt;</button>
     <img style="display: none;">
+    <div id="instructions">
+      <div>Click to open Genius link</div>
+      <div id="youtube">Double click to open YouTube link</div>
+    </div>
     <div id="message">
       Search for song quotes :)
       <div>Keep in mind that the matching is far from perfect and may produce very odd results for certain queries</div>
@@ -210,6 +253,7 @@
     const startOffsetUp = document.getElementById('start-offset-up');
     const submit = document.getElementById('submit');
     const theme = document.getElementById('theme');
+    const youtube = document.getElementById('youtube');
 
     // util
     const clearClickTimeout = () => {
@@ -235,6 +279,7 @@
           setImageSrc(imageData);
           activeLyricsLink = lyricsLink;
           activeVideoLink = videoLink;
+          youtube.style.display = videoLink ? null : 'none';
           next.disabled = !hasMorePages;
           previous.disabled = page === 0;
           endOffsetUp.disabled = !hasMoreEndOffset;
@@ -256,6 +301,7 @@
       submit.disabled = inFlight || !input.value.trim();
       input.disabled = inFlight;
       submit.textContent = inFlight ? textIfTrue : 'Search';
+      image.className = inFlight ? '' : 'loaded';
 
       if (inFlight) {
         endOffsetDown.disabled = true;
@@ -277,7 +323,6 @@
     };
 
     // event listeners
-    setInFlight(false);
     theme.addEventListener('click', (event) => {
       event.preventDefault();
 

@@ -16,8 +16,8 @@ const HEIGHT_LIMIT_LYRICS = 5;
 const IMAGE_SIZE = 500;
 const LYRIC_PADDING = 20;
 const RES_DIR = `${__dirname}/res`;
-const SONG_INFO_OFFSET = 50;
 const SCRAPING_ATTEMPTS = 10;
+const SONG_INFO_OFFSET = 50;
 const TEXT_GAP = 50;
 
 const app = express();
