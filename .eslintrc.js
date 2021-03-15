@@ -1,42 +1,46 @@
 module.exports = {
   root: true,
-  parser: 'babel-eslint',
+  parser: '@typescript-eslint/parser',
   extends: [
-    'eslint:recommended'
+    'eslint:recommended',
+    'plugin:@typescript-eslint/eslint-recommended',
+    'plugin:@typescript-eslint/recommended'
   ],
   plugins: [
-    'html'
+    'html',
+    '@typescript-eslint'
   ],
   env: {
     browser: true,
     node: true
   },
   rules: {
-    'no-unused-vars': ['error', { args: 'none' }], // ignore arguments since we can't mark unused with underscores
-    semi: ['error', 'always'],
-    indent: ['error', 2, { SwitchCase: 1 }],
-    curly: ['error', 'all'],
-    'keyword-spacing': ['error', { before: true, after: true }],
-    'prefer-destructuring': ['error', { AssignmentExpression: { array: false, object: false }, VariableDeclarator: { array: false, object: true } }], // array suggests pointlessly replacing foo[0],
+    '@typescript-eslint/no-unused-vars': ['error', { 'args': 'none' }],
+    'arrow-parens': ['error', 'always'],
     'arrow-spacing': ['error', { before: true, after: true }],
-    'prefer-const': ['error', { destructuring: 'any' }],
-    quotes: ['error', 'single'],
-    'prefer-template': ['error'],
-    'template-curly-spacing': ['error', 'never'],
+    'brace-style': ['error'],
+    'comma-dangle': ['error', 'never'],
+    'curly': ['error', 'all'],
+    'dot-notation': ['error'],
+    'eol-last': ['error'],
+    'indent': ['error', 2, { SwitchCase: 1 }],
+    'key-spacing': ['error', { mode: 'strict' }],
+    'keyword-spacing': ['error', { before: true, after: true }],
+    'no-constant-condition': ['error', { checkLoops: false }],
+    'no-multiple-empty-lines': ['error', { max: 1, maxBOF: 0, maxEOF: 1 }],
+    'no-trailing-spaces': ['error'],
+    'no-unused-vars': 'off',
     'object-shorthand': ['error', 'properties'],
     'padded-blocks': ['error', 'never'],
-    'no-trailing-spaces': ['error'],
+    'prefer-const': ['error', { destructuring: 'any' }],
+    'prefer-destructuring': ['error', { AssignmentExpression: { array: false, object: false }, VariableDeclarator: { array: false, object: true } }], // array suggests pointlessly replacing foo[0],
+    'prefer-template': ['error'],
     'quote-props': ['error', 'as-needed'],
-    'key-spacing': ['error', { mode: 'strict' }],
+    'quotes': ['error', 'single'],
+    'semi': ['error', 'always'],
     'space-in-parens': ['error'],
-    'brace-style': ['error'],
-    'no-constant-condition': ['error', { checkLoops: false }],
-    'arrow-parens': ['error', 'always'],
     'space-unary-ops': ['error'],
-    'no-multiple-empty-lines': ['error', { max: 1, maxBOF: 0, maxEOF: 1 }],
-    'eol-last': ['error'],
-    'dot-notation': ['error'],
-    'comma-dangle': ['error', 'never']
+    'template-curly-spacing': ['error', 'never']
   },
   globals: {
     gc: false,

@@ -1,10 +1,15 @@
+// node libraries
+import { AddressInfo } from 'net';
+
 // third party libraries
-const Jimp = require('jimp');
-const NodeCache = require('node-cache');
-const axios = require('axios');
-const cheerio = require('cheerio');
-const express = require('express');
-const removeAccents = require('remove-accents');
+import axios from 'axios';
+import cheerio from 'cheerio';
+import express from 'express';
+import Jimp from 'jimp';
+import { Font } from '@jimp/plugin-print';
+import nocache from 'nocache';
+import NodeCache from 'node-cache';
+import removeAccents from 'remove-accents';
 
 // constants
 const CACHE_EXPIRY = 60 * 10; // 10 minutes
@@ -26,12 +31,86 @@ const cache = new NodeCache({
 });
 let requestIdGenerator = 0;
 
+interface Range {
+  end: number;
+  start: number;
+}
+
+interface Highlight {
+  property: string;
+  ranges: Range[];
+  snippet: boolean;
+  value: string;
+}
+
+interface Hit {
+  highlights: Highlight[];
+  index: string;
+  result: {
+    _type: string;
+    annotation_count: number;
+    api_path: string;
+    full_title: string;
+    header_image_thumbnail_url: string;
+    header_image_url: string;
+    id: number;
+    instrumental: boolean;
+    lyrics_owner_id: number;
+    lyrics_state: number;
+    lyrics_updated_at: number;
+    path: string;
+    primary_artist: {
+      _type: string;
+      api_path: string;
+      header_image_url: string;
+      id: number;
+      image_url: string;
+      index_character: number;
+      iq: number;
+      is_meme_verified: boolean;
+      is_verified: boolean;
+      name: string;
+      slug: string;
+      url: string;
+    };
+    pyongs_count: number;
+    song_art_image_thumbnail_url: string;
+    song_art_image_url: string;
+    stats: {
+      concurrents: number;
+      hot: boolean;
+      pageviews: number;
+      unreviewed_annotations: number;
+    };
+    title: string;
+    title_with_featured: string;
+    updated_by_human_at: number;
+    url: string;
+  };
+  type: string;
+}
+
+interface Section {
+  hits: Hit[];
+  type: string;
+}
+
+interface Response {
+  next_page: number;
+  sections: Section[];
+}
+
+interface ScrapedData {
+  lyrics: string[];
+  videoLink: string;
+}
+
 (async () => {
   const fontBlack = await Jimp.loadFont(`${RES_DIR}/Programme-Regular-Black.fnt`);
   const fontWhite = await Jimp.loadFont(`${RES_DIR}/Programme-Regular-White.fnt`);
   const quotesImage = await Jimp.read(`${RES_DIR}/quotes.png`);
 
-  const scapeDataFromUrl = async (url) => {
+  const scapeDataFromUrl = async (url: string): Promise<ScrapedData> => {
     // lyrics can sometimes come back blank so try a few times
     for (let i = 0; i < SCRAPING_ATTEMPTS; i++) {
       const { data } = await axios.get(url, {
@@ -52,15 +131,15 @@ let requestIdGenerator = 0;
   };
 
   // only allow characters our fnt file supports
-  const cleanString = (string) => removeAccents(string)
+  const cleanString = (string: string) => removeAccents(string)
     .replace(/’/g, '\'')
     .replace(/—/g, '-')
     .replace(/[^0-9A-Za-z-_,.{}$[\]@()|&?!;/\\%#:<>+*^='"`~\s]/g, '');
   // strip out non-alphanumeric characters
-  const normaliseString = (string) => string.toLowerCase().replace(/[^0-9a-z-\s]/g, '');
+  const normaliseString = (string: string) => string.toLowerCase().replace(/[^0-9a-z-\s]/g, '');
 
   // split string into chunks we can render onto the image
-  const splitString = (string, font, width, lengthLimit) => {
+  const splitString = (string: string, font: Font, width: number, lengthLimit: number) => {
     const stringWords = string.trim().split(' ');
     const chunks = [];
     let hasMoreSpace = true;
@@ -72,7 +151,7 @@ let requestIdGenerator = 0;
         const word = stringWords.shift();
         chunk.push(word);
 
-        if (word.endsWith('\n')) {
+        if (word?.endsWith('\n')) {
           break;
         }
       }
@@ -94,13 +173,13 @@ let requestIdGenerator = 0;
       hasMoreSpace
     };
   };
-  const splitLyric = (lyric, lengthLimit) => splitString(lyric, fontBlack, IMAGE_SIZE - TEXT_GAP - LYRIC_PADDING, lengthLimit);
+  const splitLyric = (lyric: string, lengthLimit: number) => splitString(lyric, fontBlack, IMAGE_SIZE - TEXT_GAP - LYRIC_PADDING, lengthLimit);
   // reverse so we can render from the bottom up, discard hasMoreSpace property as it's not used
-  const splitTitle = (title) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).chunks.reverse();
+  const splitTitle = (title: string) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).chunks.reverse();
 
-  const renderLyric = (lyric) => {
+  const renderLyric = (lyric: string): Promise<Jimp> => {
     const textWidth = Jimp.measureText(fontBlack, lyric);
-    const textHeight = Jimp.measureTextHeight(fontBlack, lyric);
+    const textHeight = (Jimp.measureTextHeight as typeof Jimp.measureText)(fontBlack, lyric);
     return new Promise((resolve, reject) => {
       new Jimp(textWidth + LYRIC_PADDING, textHeight, '#fff', (error, image) => {
         if (error) {
@@ -114,12 +193,20 @@ let requestIdGenerator = 0;
     });
   };
 
+  // disable caching
+  app.use(nocache());
+
   app.use(express.static('public'));
 
   app.get('/search', async (req, res) => {
     const requestId = `${process.pid}-${++requestIdGenerator}`;
     try {
-      const query = req.query.q?.trim().toLowerCase();
+      const { eo, p, q, so } = req.query;
+      if (typeof eo !== 'string' || typeof p !== 'string' || typeof q !== 'string' || typeof so !== 'string') {
+        res.sendStatus(400);
+        return;
+      }
+      const query = q?.trim().toLowerCase();
       if (!query) {
         console.warn('malformed query', {
           reqQuery: req.query,
@@ -129,9 +216,9 @@ let requestIdGenerator = 0;
         return;
       }
 
-      const index = parseInt(req.query.p, 10) || 0;
-      const startOffset = parseInt(req.query.so, 10) || 0;
-      const endOffset = parseInt(req.query.eo, 10) || 0;
+      const index = parseInt(p ?? '0', 10);
+      const startOffset = parseInt(so ?? '0', 10);
+      const endOffset = parseInt(eo ?? '0', 10);
       console.log('search', {
         index,
         query,
@@ -139,7 +226,7 @@ let requestIdGenerator = 0;
       });
       // fetch API data
       const cachedResponseKey = `${CACHE_NAMESPACE_API}${query}`;
-      let response = cache.get(cachedResponseKey);
+      let response: undefined | Response = cache.get(cachedResponseKey);
       if (response) {
         console.log('using cached response', {
           requestId
@@ -153,7 +240,7 @@ let requestIdGenerator = 0;
         }));
         cache.set(cachedResponseKey, response, CACHE_EXPIRY);
       }
-      const hits = response.sections.find(({ type }) => type === 'lyric')?.hits;
+      const hits = response?.sections.find(({ type }) => type === 'lyric')?.hits;
       const match = hits?.[index];
       if (!match) {
         res.sendStatus(404);
@@ -168,7 +255,7 @@ let requestIdGenerator = 0;
       const splitNormalisedQuery = normalisedQuery.split(' ');
       // scrape lyrics and YouTube URL
       const cachedScrapedDataKey = `${CACHE_NAMESPACE_SCRAPED}${url}`;
-      let scrapedData = cache.get(cachedScrapedDataKey);
+      let scrapedData: undefined | ScrapedData = cache.get(cachedScrapedDataKey);
       if (scrapedData) {
         console.log('using cached scraped data', {
           requestId
@@ -194,14 +281,14 @@ let requestIdGenerator = 0;
           || normalisedLyrics.find((lyric) => splitNormalisedQuery.some((word) => lyric.match(new RegExp(`\\b${word}\\b`))))
           // match of one of the words in our query without boundaries
           || normalisedLyrics.find((lyric) => splitNormalisedQuery.some((word) => lyric.includes(word)));
-      const matchingIndex = normalisedLyrics.indexOf(matchingNormalisedLyric);
+      const matchingIndex = normalisedLyrics.indexOf(matchingNormalisedLyric ?? '');
       // apply user offsets
       const startIndex = matchingIndex - startOffset;
       const endIndex = matchingIndex + 1 + endOffset;
       const matchingLyric = matchingIndex === -1 ? query : lyrics.slice(startIndex, endIndex).join('\n ');
       // fetch artist image
       const cachedImageDataKey = `${CACHE_NAMESPACE_ARTIST_IMAGE}${primary_artist.image_url}`;
-      let imageData = cache.get(cachedImageDataKey);
+      let imageData: undefined | Buffer = cache.get(cachedImageDataKey);
       if (imageData) {
         console.log('using cached image data', {
           requestId
@@ -214,6 +301,9 @@ let requestIdGenerator = 0;
           responseType: 'arraybuffer'
         }));
         cache.set(cachedImageDataKey, imageData, CACHE_EXPIRY);
+      }
+      if (!imageData) {
+        throw new Error('missing image data');
       }
       // apply splitting algorithm to fit the text over our image
       const titleArray = splitTitle(cleanString(`${primary_artist.name} "${title}"`));
@@ -234,7 +324,7 @@ let requestIdGenerator = 0;
       }
 
       // render quote icon and extract final buffer
-      const buffer = await printedImage.blit(quotesImage, 15, 20).getBufferAsync(Jimp.AUTO);
+      const buffer = await (printedImage.blit(quotesImage, 15, 20).getBufferAsync as (mime: string | number) => Promise<Buffer>)(Jimp.AUTO);
       if (req.query.d === 'true') {
         // debug, just send image
         res.setHeader('Content-Type', image.getMIME());
@@ -243,7 +333,7 @@ let requestIdGenerator = 0;
         // send general metadata and base64 encoded image
         res.json({
           hasMoreEndOffset: matchingIndex !== -1 && hasMoreSpace && endIndex < lyrics.length,
-          hasMorePages: !!hits[index + 1],
+          hasMorePages: !!hits?.[index + 1],
           hasMoreStartOffset: matchingIndex !== -1 && hasMoreSpace && startIndex > 0,
           imageData: `data:${image.getMIME()};base64,${buffer.toString('base64')}`,
           lyricsLink: url,
@@ -262,9 +352,10 @@ let requestIdGenerator = 0;
     }
   });
 
-  const server = app.listen(parseInt(process.env.PORT, 10) || 8080, () => {
+  const server = app.listen(parseInt(process.env.PORT ?? '8080', 10), () => {
+    const address = server.address() as AddressInfo;
     console.log('listening', {
-      port: server.address().port
+      port: address.port
     });
   });
 })();
