@@ -132,7 +132,8 @@ interface ScrapedData {
 
   // only allow characters our fnt file supports
   const cleanString = (string: string) => removeAccents(string)
-    .replace(/’/g, '\'')
+    .replace(/[‘’]/g, '\'')
+    .replace(/[“”]/g, '"')
     .replace(/—/g, '-')
     .replace(/[^0-9A-Za-z-_,.{}$[\]@()|&?!;/\\%#:<>+*^='"`~\s]/g, '');
   // strip out non-alphanumeric characters
@@ -206,7 +207,12 @@ interface ScrapedData {
         res.sendStatus(400);
         return;
       }
-      const query = q?.trim().toLowerCase();
+      const query = q
+        .trim()
+        .toLowerCase()
+        .replace(/[‘’]/g, '\'')
+        .replace(/[“”]/g, '"');
+
       if (!query) {
         console.warn('malformed query', {
           reqQuery: req.query,
