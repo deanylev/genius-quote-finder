@@ -110,14 +110,17 @@ interface ScrapedData {
   const fontWhite = await Jimp.loadFont(`${RES_DIR}/Programme-Regular-White.fnt`);
   const quotesImage = await Jimp.read(`${RES_DIR}/quotes.png`);
 
-  const scapeDataFromUrl = async (url: string): Promise<ScrapedData> => {
+  const scrapeDataFromUrl = async (url: string): Promise<ScrapedData> => {
     // lyrics can sometimes come back blank so try a few times
     for (let i = 0; i < SCRAPING_ATTEMPTS; i++) {
       const { data } = await axios.get(url, {
         responseType: 'text'
       });
       const $ = cheerio.load(data);
-      const lyrics = $('.lyrics').text().trim();
+      const element = $('#lyrics-root-pin-spacer');
+      // https://github.com/cheeriojs/cheerio/issues/839#issuecomment-379737480
+      element.find('br').replaceWith('\n');
+      const lyrics = element.text().trim();
       const videoLink = JSON.parse($('meta[itemprop="page_data"]').attr('content') || '{}').song?.youtube_url;
       if (lyrics) {
         return {
@@ -270,7 +273,7 @@ interface ScrapedData {
         console.log('no cached scraped data, fetching...', {
           requestId
         });
-        scrapedData = await scapeDataFromUrl(url);
+        scrapedData = await scrapeDataFromUrl(url);
         cache.set(cachedScrapedDataKey, scrapedData, CACHE_EXPIRY);
       }
       // filter out characters that we can't print using our fnt file and also lyrical meta like "[Outro: x]"
