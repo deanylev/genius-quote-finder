@@ -12,13 +12,13 @@
     "axios": "^0.21.0",
     "cheerio": "^1.0.0-rc.5",
     "express": "^4.17.1",
-    "jimp": "^0.16.1",
+    "jimp-native": "^0.1.0",
     "nocache": "^2.1.0",
     "node-cache": "^5.1.2",
     "remove-accents": "^0.4.2"
   },
   "devDependencies": {
-    "@jimp/plugins": "^0.16.1",
+    "@jimp/core": "^0.22.10",
     "@types/express": "^4.17.11",
     "@types/node": "^14.14.34",
     "@typescript-eslint/eslint-plugin": "^4.17.0",

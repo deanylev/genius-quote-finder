@@ -5,7 +5,8 @@ import { AddressInfo } from 'net';
 import axios from 'axios';
 import cheerio from 'cheerio';
 import express from 'express';
-import Jimp from 'jimp';
+import Jimp from 'jimp-native';
+import { Jimp as JimpImage } from '@jimp/core';
 import { Font } from '@jimp/plugin-print';
 import nocache from 'nocache';
 import NodeCache from 'node-cache';
@@ -181,9 +182,9 @@ interface ScrapedData {
   // reverse so we can render from the bottom up, discard hasMoreSpace property as it's not used
   const splitTitle = (title: string) => splitString(title.toUpperCase(), fontWhite, IMAGE_SIZE - TEXT_GAP, 3).chunks.reverse();
 
-  const renderLyric = (lyric: string): Promise<Jimp> => {
+  const renderLyric = (lyric: string): Promise<JimpImage> => {
     const textWidth = Jimp.measureText(fontBlack, lyric);
-    const textHeight = (Jimp.measureTextHeight as typeof Jimp.measureText)(fontBlack, lyric);
+    const textHeight = Jimp.measureTextHeight(fontBlack, lyric, textWidth);
     return new Promise((resolve, reject) => {
       new Jimp(textWidth + LYRIC_PADDING, textHeight, '#fff', (error, image) => {
         if (error) {
@@ -319,21 +320,20 @@ interface ScrapedData {
       const { chunks: lyricArray, hasMoreSpace } = splitLyric(matchingLyric, HEIGHT_LIMIT_LYRICS + HEIGHT_LIMIT_INFO - titleArray.length);
       // resize/darken image, then render lyric chunks one by one
       const image = (await Jimp.read(imageData)).resize(IMAGE_SIZE, IMAGE_SIZE);
-      let blatImage = image.brightness(-0.3);
+      image.brightness(-0.3);
       for (let i = 0; i < lyricArray.length; i++) {
         const lyricImage = await renderLyric(lyricArray[i]);
-        blatImage = blatImage.blit(lyricImage, TEXT_GAP, i * 50 + 20);
+        image.blit(lyricImage, TEXT_GAP, i * 50 + 20);
       }
 
       // render song info
       // this could pretty easily be a reduce loop but seems nicer to match blocking loop above
-      let printedImage = blatImage;
       for (let i = 0; i < titleArray.length; i++) {
-        printedImage = printedImage.print(fontWhite, TEXT_GAP, IMAGE_SIZE - SONG_INFO_OFFSET - i * 30, titleArray[i]);
+        image.print(fontWhite, TEXT_GAP, IMAGE_SIZE - SONG_INFO_OFFSET - i * 30, titleArray[i]);
       }
 
       // render quote icon and extract final buffer
-      const buffer = await (printedImage.blit(quotesImage, 15, 20).getBufferAsync as (mime: string | number) => Promise<Buffer>)(Jimp.AUTO);
+      const buffer = await (image.blit(quotesImage, 15, 20).getBufferAsync as (mime: string | number) => Promise<Buffer>)(Jimp.AUTO);
       if (req.query.d === 'true') {
         // debug, just send image
         res.setHeader('Content-Type', image.getMIME());
