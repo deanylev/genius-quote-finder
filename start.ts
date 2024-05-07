@@ -11,6 +11,7 @@ import { Font } from '@jimp/plugin-print';
 import nocache from 'nocache';
 import NodeCache from 'node-cache';
 import removeAccents from 'remove-accents';
+import sharp from 'sharp';
 
 // constants
 const CACHE_EXPIRY = 60 * 10; // 10 minutes
@@ -297,7 +298,8 @@ interface ScrapedData {
       const endIndex = matchingIndex + 1 + endOffset;
       const matchingLyric = matchingIndex === -1 ? query : lyrics.slice(startIndex, endIndex).join('\n ');
       // fetch artist image
-      const cachedImageDataKey = `${CACHE_NAMESPACE_ARTIST_IMAGE}${primary_artist.image_url}`;
+      const { image_url } = primary_artist;
+      const cachedImageDataKey = `${CACHE_NAMESPACE_ARTIST_IMAGE}${image_url}`;
       let imageData: undefined | Buffer = cache.get(cachedImageDataKey);
       if (imageData) {
         console.log('using cached image data', {
@@ -305,11 +307,15 @@ interface ScrapedData {
         });
       } else {
         console.log('no cached image data, fetching...', {
-          requestId
+          requestId,
+          url: image_url
         });
-        ({ data: imageData } = await axios.get(primary_artist.image_url, {
+        ({ data: imageData } = await axios.get(image_url, {
           responseType: 'arraybuffer'
         }));
+        if (image_url.endsWith('.webp')) {
+          imageData = await sharp(imageData).png().toBuffer();
+        }
         cache.set(cachedImageDataKey, imageData, CACHE_EXPIRY);
       }
       if (!imageData) {

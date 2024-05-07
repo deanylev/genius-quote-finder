@@ -15,7 +15,8 @@
     "jimp-native": "^0.1.0",
     "nocache": "^2.1.0",
     "node-cache": "^5.1.2",
-    "remove-accents": "^0.4.2"
+    "remove-accents": "^0.4.2",
+    "sharp": "^0.33.3"
   },
   "devDependencies": {
     "@jimp/core": "^0.22.10",
