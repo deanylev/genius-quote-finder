@@ -155,7 +155,7 @@ interface ScrapedData {
 
       while (Jimp.measureText(font, [...chunk, stringWords[0]].join(' ')) < width && stringWords.length > 0) {
         const word = stringWords.shift();
-        chunk.push(word);
+        chunk.push(word?.trim());
 
         if (word?.endsWith('\n')) {
           break;
